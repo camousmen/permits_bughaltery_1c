@@ -4,20 +4,26 @@ from tkinter import END, StringVar, Tk, Frame, BOTH, Listbox, Scrollbar
 from tkinter.ttk import Frame, Button, Style, Label, Entry
 import tkinter as tk
 import csv, pickle
+import tools1c
 
 
-partner_list = []
-name_list = [x for x in range(0, 100)]
+PARTNERS_LIST = []
+name_list = []
 partners_names_rel_list = []
+
+# подтягивать список контрагентов будем из розницы, а не из бухгалтерии,
+# что избавит от ситуаций когда на кассе окажется что в базе контрагент еще не добавлен
+
+
 
 # для тестов будем загружать из файла csv
 def load_partners_from_csv():
     with open("partner_list.csv", encoding='utf-8') as r_file:
         file_reader = csv.reader(r_file, delimiter=";")
         for row in file_reader:
-            partner_list.append([row[0], row[1]])
+            PARTNERS_LIST.append([row[0], row[1]])
 
-# сохранение и загрузка списка партнеров и связанных лиц
+# сохранение и загрузка связей партнеров и лиц
 def save_partners_names_rel_to_pickle():
     try:
         with open("data.pickle", "wb") as f:
@@ -36,7 +42,8 @@ def load_partners_names_rel_from_pickle():
 # собственно сам класс главного окна приложения
 class Example(Frame):
 
-    def __init__(self, parent):
+    def __init__(self, parent, partner_list):
+        self.partner_list = partner_list
         Frame.__init__(self, parent)
         self.parent = parent
         self.parent.title("Center window")
@@ -80,7 +87,7 @@ class Example(Frame):
         # два поля для фильтрации списков
         vcmd_p = (self.register(self.partner_do_validation), '%P')
         vcmd_n = (self.register(self.name_do_validation), '%P')
-        find_partner_entry = Entry(self, width=20, textvariable=p_sv, validate="key", validatecommand=vcmd_p, font=16)
+        find_partner_entry = Entry(self, width=30, textvariable=p_sv, validate="key", validatecommand=vcmd_p, font=16)
         find_name_entry = Entry(self, width=10, textvariable=n_sv, validate="key", validatecommand=vcmd_n, font=16)
         summ_entry = Entry(self, width=10)
 
@@ -96,8 +103,8 @@ class Example(Frame):
         self.partner_listbox = Listbox(self, width=45)
         self.name_listbox = Listbox(self)
 
-        for el in partner_list:
-            self.partner_listbox.insert(END, f"{el[0]}/{el[1]}")
+        for el in self.partner_list:
+            self.partner_listbox.insert(END, f"{el['Description']}/{el['ИНН']}")
 
         for el in name_list:
             self.name_listbox.insert(END, el)
@@ -123,16 +130,15 @@ class Example(Frame):
         if len(new_value) != 0:
             if len(new_value) < 2:
                 self.partner_listbox.delete(0, END)
-                for el in partner_list:
-                    self.partner_listbox.insert(END, f"{el[0]}/{el[1]}")
-            elif len(new_value) > 2:
+                for el in self.partner_list:
+                    self.partner_listbox.insert(END, f"{el['Description']}/{el['ИНН']}")
+            elif len(new_value) > 1:
                 self.partner_listbox.delete(0, END)
-                for el in partner_list:
-                    buf_el = el[0].lower()
+                for el in self.partner_list:
+                    buf_el = el['Description'].lower()
                     new_value = new_value.lower()
                     if buf_el.find(new_value) != -1:
-                        self.partner_listbox.insert(END, el[0])
-
+                        self.partner_listbox.insert(END, el['Description'])
 
         return True
 
@@ -142,9 +148,12 @@ class Example(Frame):
 
 def main():
     root = Tk()
+    # загружаем список доверенных лиц контрагентов
     load_partners_names_rel_from_pickle()
-    load_partners_from_csv()
-    ex = Example(root)
+    # загружаем список контрагентов из Розницы
+    partner_list = tools1c.get_partner_list_from_1c()
+    # загружаем 
+    ex = Example(root, partner_list)
     root.mainloop()
 
 if __name__ == '__main__':
